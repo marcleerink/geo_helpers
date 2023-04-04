@@ -1,0 +1,12 @@
+venv/
+tests/
+
+# pytest
+.pytest_cache/
+
+#python
+*.pyc
+*__pycache__*
+
+#mac
+.DS_Store
