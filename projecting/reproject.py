@@ -4,8 +4,9 @@ from typing import Optional, Union
 import pyproj
 from pyproj.aoi import AreaOfInterest
 from pyproj.database import query_utm_crs_info
-from shapely.geometry import (GeometryCollection, LineString, MultiLineString,
-                              MultiPoint, MultiPolygon, Point, Polygon)
+from shapely.geometry import (GeometryCollection, LinearRing, LineString,
+                              MultiLineString, MultiPoint, MultiPolygon, Point,
+                              Polygon)
 
 
 def determine_utm_epsg(lon: float, lat: float) -> int:
@@ -61,6 +62,7 @@ def project_geometry_local_utm(
     geom_map = {
         Point: _project_point,
         LineString: _project_linestring,
+        LinearRing: _project_linear_ring,
         Polygon: _project_polygon,
         MultiPoint: lambda mp, source_epsg, _: MultiPoint(
             [project_geometry_local_utm(p, source_epsg) for p in mp.geoms]),
@@ -90,6 +92,12 @@ def _project_linestring(
     ) -> LineString:
     transformer = create_transformer(source_epsg, target_epsg)
     return LineString([transformer.transform(*xy) for xy in linestring.coords])
+
+def _project_linear_ring(
+    linear_ring: LinearRing, source_epsg: int, target_epsg: int
+    ) -> LinearRing:
+    transformer = create_transformer(source_epsg, target_epsg)
+    return LinearRing([transformer.transform(*xy) for xy in linear_ring.coords])
 
 def _project_polygon(
     polygon: Polygon, source_epsg: int, target_epsg: int
