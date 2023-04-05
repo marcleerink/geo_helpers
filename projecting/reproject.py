@@ -71,42 +71,6 @@ def create_transformer(
     return pyproj.Transformer.from_crs(
         source_crs, target_crs, always_xy=True)
 
-def project_geometry_local_utm(
-    geometry: BaseGeometry,
-    source_epsg: int = 4326
-    ) -> BaseGeometry:
-    """
-    Project any shapely geometry to the local UTM zone. For multi-part geometries, each part is
-    projected separately.
-
-    :param geometry: shapely geometry to project
-    :param source_epsg: EPSG code of the source geometry
-
-    :return: projected shapely geometry
-    :raises TypeError: if the geometry type is not supported
-    """
-    geom_map = {
-        Point: _project_point,
-        LineString: _project_linestring,
-        LinearRing: _project_linear_ring,
-        Polygon: _project_polygon,
-        MultiPoint: lambda mp, source_epsg, _: MultiPoint(
-            [project_geometry_local_utm(p, source_epsg) for p in mp.geoms]),
-        MultiLineString: lambda mls, source_epsg, _: MultiLineString(
-            [project_geometry_local_utm(ls, source_epsg) for ls in mls.geoms]),
-        MultiPolygon: lambda mp, source_epsg, _: MultiPolygon(
-            [project_geometry_local_utm(p, source_epsg) for p in mp.geoms]),
-        GeometryCollection: lambda gc, source_epsg, _: GeometryCollection(
-            [project_geometry_local_utm(g, source_epsg) for g in gc.geoms])
-    }
-
-    if type(geometry) not in geom_map:
-        raise TypeError(f"Unsupported geometry type: {type(geometry)}")
-
-    x, y = geometry.centroid.x, geometry.centroid.y
-    target_epsg = determine_utm_epsg(source_epsg, x, y, x, y)
-
-    return geom_map[type(geometry)](geometry, source_epsg, target_epsg)
 
 def project_geometry_equal_area(
     geometry:BaseGeometry,
@@ -115,7 +79,7 @@ def project_geometry_equal_area(
     ) -> BaseGeometry:
     """
     Project any shapely geometry to an equal-area projection centered on the centroid.
-    For multi-part geometries, each part is projected separately.
+    For multi-part geometries, each part is processed separately.
 
     :param geometry: shapely geometry to project
     :param source_epsg: EPSG code of the source geometry
@@ -123,26 +87,54 @@ def project_geometry_equal_area(
     :return: projected shapely geometry
     :raises TypeError: if the geometry type is not supported
     """
+
+    return _project_geometry(geometry, source_epsg, target_epsg)
+
+def project_geometry_local_utm(
+    geometry:BaseGeometry,
+    source_epsg:int=4326,
+    ) -> BaseGeometry:
+    """
+    Project any shapely geometry to a local UTM projection.
+    For multi-part geometries, each part is processed separately.
+
+    :param geometry: shapely geometry to project
+    :param source_epsg: EPSG code of the source geometry
+
+    :return: projected shapely geometry
+    :raises TypeError: if the geometry type is not supported
+    """
+
+    return _project_geometry(geometry, source_epsg)
+
+def _project_geometry(
+    geometry: BaseGeometry,
+    source_epsg: int = 4326,
+    target_epsg: Optional[int] = None,
+    ) -> BaseGeometry:
     geom_map = {
         Point: _project_point,
         LineString: _project_linestring,
         LinearRing: _project_linear_ring,
         Polygon: _project_polygon,
         MultiPoint: lambda mp, source_epsg, _: MultiPoint(
-            [project_geometry_equal_area(p, source_epsg, target_epsg) for p in mp.geoms]),
-        MultiLineString: lambda mls, source_epsg, target_epsg: MultiLineString(
-            [project_geometry_equal_area(ls, source_epsg, target_epsg) for ls in mls.geoms]),
-        MultiPolygon: lambda mp, source_epsg, target_epsg: MultiPolygon(
-            [project_geometry_equal_area(p, source_epsg, target_epsg) for p in mp.geoms]),
-        GeometryCollection: lambda gc, source_epsg, target_epsg: GeometryCollection(
-            [project_geometry_equal_area(g, source_epsg) for g in gc.geoms])
+            [_project_geometry(p, source_epsg) for p in mp.geoms]),
+        MultiLineString: lambda mls, source_epsg, _: MultiLineString(
+            [_project_geometry(ls, source_epsg) for ls in mls.geoms]),
+        MultiPolygon: lambda mp, source_epsg, _: MultiPolygon(
+            [_project_geometry(p, source_epsg) for p in mp.geoms]),
+        GeometryCollection: lambda gc, source_epsg, _: GeometryCollection(
+            [_project_geometry(g, source_epsg) for g in gc.geoms])
     }
 
     if type(geometry) not in geom_map:
         raise TypeError(f"Unsupported geometry type: {type(geometry)}")
 
-    return geom_map[type(geometry)](geometry, source_epsg, target_epsg)
+    if target_epsg is None:
+        x, y = geometry.centroid.x, geometry.centroid.y
+        target_epsg = determine_utm_epsg(source_epsg, x, y, x, y)
 
+    return geom_map[type(geometry)](geometry, source_epsg, target_epsg)
 
 def _project_point(
     point: Point, source_epsg: int, target_epsg: int
