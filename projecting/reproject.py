@@ -62,9 +62,12 @@ def project_geometry_local_utm(
         Point: _project_point,
         LineString: _project_linestring,
         Polygon: _project_polygon,
-        MultiPoint: _project_multipoint,
-        MultiLineString: _project_multilinestring,
-        MultiPolygon: _project_multipolygon,
+        MultiPoint: lambda mp, source_epsg, _: MultiPoint(
+            [project_geometry_local_utm(p, source_epsg) for p in mp.geoms]),
+        MultiLineString: lambda mls, source_epsg, _: MultiLineString(
+            [project_geometry_local_utm(ls, source_epsg) for ls in mls.geoms]),
+        MultiPolygon: lambda mp, source_epsg, _: MultiPolygon(
+            [project_geometry_local_utm(p, source_epsg) for p in mp.geoms]),
         GeometryCollection: lambda gc, source_epsg, _: GeometryCollection(
             [project_geometry_local_utm(g, source_epsg) for g in gc.geoms])
     }
@@ -74,6 +77,7 @@ def project_geometry_local_utm(
 
     return geom_map[type(geometry)](
         geometry, source_epsg, determine_utm_epsg(geometry.centroid.x, geometry.centroid.y))
+
 
 def _project_point(
     point: Point, source_epsg: int, target_epsg: int
@@ -100,22 +104,6 @@ def _project_polygon(
 
     return Polygon(exterior_coords, interior_coords)
 
-def _project_multipoint(
-    multipoint: MultiPoint, source_epsg: int, target_epsg: int
-    ) -> MultiPoint:
-    return MultiPoint([_project_point(p, source_epsg, target_epsg)
-                       for p in multipoint.geoms])
-def _project_multipolygon(
-    multipolygon: MultiPolygon, source_epsg: int, target_epsg: int
-    ) -> MultiPolygon:
-    return MultiPolygon([_project_polygon(p, source_epsg, target_epsg)
-                         for p in multipolygon.geoms])
-
-def _project_multilinestring(
-    multilinestring: MultiLineString, source_epsg: int, target_epsg: int
-    ) -> MultiLineString:
-    return MultiLineString([_project_linestring(ls, source_epsg, target_epsg)
-                            for ls in multilinestring.geoms])
 
 def project_polygon_equal_area(multipolygon: Union[Polygon, MultiPolygon]):
     """
