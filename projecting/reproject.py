@@ -3,10 +3,11 @@ from typing import Optional, Union
 
 import pyproj
 from pyproj.aoi import AreaOfInterest
-from pyproj.database import query_utm_crs_info
+from pyproj.database import query_crs_info, query_utm_crs_info
 from shapely.geometry import (GeometryCollection, LinearRing, LineString,
                               MultiLineString, MultiPoint, MultiPolygon, Point,
                               Polygon)
+from shapely.ops import BaseGeometry
 
 
 def determine_utm_epsg(
@@ -15,19 +16,30 @@ def determine_utm_epsg(
         south_lat:float,
         east_lon:float,
         north_lat:float) -> int:
-    """ Determine the UTM EPSG code for a given source EPSG code and coordinate.
+    """
+    Determine the UTM EPSG code for a given coordinate.
 
     :param source_epsg: The source EPSG code
-    :param x: The x coordinate
-    :param y: The y coordinate
+    :param west_lon: The western longitude
+    :param south_lat: The southern latitude
+    :param east_lon: The eastern longitude
+    :param north_lat: The northern latitude
+
     :return: The UTM EPSG code
+
+    :raises ValueError: If no UTM CRS is found for the given coordinate
     """
+    source_crs = pyproj.CRS.from_epsg(source_epsg)
+    datum_name = source_crs.to_cf()['geographic_crs_name']
+
     utm_crs_info = query_utm_crs_info(
-        datum_name= 'WGS84',
+        datum_name= datum_name,
         area_of_interest=AreaOfInterest(
                 west_lon, south_lat, east_lon, north_lat),
         contains=True)
 
+    if not utm_crs_info:
+        raise ValueError('No UTM CRS found for the given coordinate')
     return int(utm_crs_info[0].code)
 
 def create_transformer(
@@ -53,9 +65,9 @@ def create_transformer(
         source_crs, target_crs, always_xy=True, area_of_interest=aoi)
 
 def project_geometry_local_utm(
-    geometry: Union[Point, LineString, Polygon, MultiLineString, MultiPolygon, MultiPoint, GeometryCollection],
+    geometry: BaseGeometry,
     source_epsg: int = 4326
-    ) -> Union[Point, LineString, Polygon, MultiLineString, MultiPolygon, GeometryCollection]:
+    ) -> BaseGeometry:
     """
     Project any shapely geometry to the local UTM zone. For multi-part geometries, each part is
     projected separately.
@@ -85,10 +97,9 @@ def project_geometry_local_utm(
         raise TypeError(f"Unsupported geometry type: {type(geometry)}")
 
     x, y = geometry.centroid.x, geometry.centroid.y
+    target_epsg = determine_utm_epsg(source_epsg, x, y, x, y)
 
-    return geom_map[type(geometry)](
-        geometry, source_epsg, determine_utm_epsg(
-            source_epsg , x, y, x, y))
+    return geom_map[type(geometry)](geometry, source_epsg, target_epsg)
 
 
 def _project_point(
