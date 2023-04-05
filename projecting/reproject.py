@@ -1,4 +1,4 @@
-
+import json
 from typing import Optional, Union
 
 import pyproj
@@ -15,9 +15,10 @@ def determine_utm_epsg(
         west_lon:float,
         south_lat:float,
         east_lon:float,
-        north_lat:float) -> int:
+        north_lat:float,
+        contains = False) -> int:
     """
-    Determine the UTM EPSG code for a given coordinate.
+    Determine the UTM EPSG code for a given epsg code and bounding box
 
     :param source_epsg: The source EPSG code
     :param west_lon: The western longitude
@@ -27,19 +28,19 @@ def determine_utm_epsg(
 
     :return: The UTM EPSG code
 
-    :raises ValueError: If no UTM CRS is found for the given coordinate
+    :raises ValueError: If no UTM CRS is found for the epsg and bbox
     """
-    source_crs = pyproj.CRS.from_epsg(source_epsg)
-    datum_name = source_crs.to_cf()['geographic_crs_name']
+    datum_name = pyproj.CRS.from_epsg(source_epsg).to_dict()['datum']
 
     utm_crs_info = query_utm_crs_info(
         datum_name= datum_name,
         area_of_interest=AreaOfInterest(
                 west_lon, south_lat, east_lon, north_lat),
-        contains=True)
+        contains=contains)
 
     if not utm_crs_info:
-        raise ValueError('No UTM CRS found for the given coordinate')
+        raise ValueError(
+            f'No UTM CRS found for the datum {datum_name} and bbox')
     return int(utm_crs_info[0].code)
 
 def create_transformer(
