@@ -5,7 +5,7 @@ import pyproj
 from pyproj.aoi import AreaOfInterest
 from pyproj.database import query_utm_crs_info
 from shapely.geometry import (GeometryCollection, LineString, MultiLineString,
-                              MultiPolygon, Point, Polygon)
+                              MultiPoint, MultiPolygon, Point, Polygon)
 
 
 def determine_utm_epsg(lon: float, lat: float) -> int:
@@ -45,7 +45,7 @@ def create_transformer(
         source_crs, target_crs, always_xy=True, area_of_interest=aoi)
 
 def project_geometry_local_utm(
-    geometry: Union[Point, LineString, Polygon, MultiLineString, MultiPolygon, GeometryCollection],
+    geometry: Union[Point, LineString, Polygon, MultiLineString, MultiPolygon, MultiPoint, GeometryCollection],
     source_epsg: int = 4326
     ) -> Union[Point, LineString, Polygon, MultiLineString, MultiPolygon, GeometryCollection]:
     """
@@ -59,14 +59,12 @@ def project_geometry_local_utm(
     :raises TypeError: if the geometry type is not supported
     """
     geom_map = {
-        Point: _project_point_local_utm,
-        LineString: _project_linestring_local_utm,
-        Polygon: _project_polygon_local_utm,
-        MultiLineString: lambda mls, source_epsg, target_epsg: MultiLineString(
-            [_project_linestring_local_utm(ls, source_epsg, target_epsg)
-             for ls in mls.geoms]),
-        MultiPolygon: lambda mp, source_epsg, target_epsg: MultiPolygon(
-            [_project_polygon_local_utm(p, source_epsg, target_epsg) for p in mp.geoms]),
+        Point: _project_point,
+        LineString: _project_linestring,
+        Polygon: _project_polygon,
+        MultiPoint: _project_multipoint,
+        MultiLineString: _project_multilinestring,
+        MultiPolygon: _project_multipolygon,
         GeometryCollection: lambda gc, source_epsg, _: GeometryCollection(
             [project_geometry_local_utm(g, source_epsg) for g in gc.geoms])
     }
@@ -77,17 +75,21 @@ def project_geometry_local_utm(
     return geom_map[type(geometry)](
         geometry, source_epsg, determine_utm_epsg(geometry.centroid.x, geometry.centroid.y))
 
-def _project_point_local_utm(point: Point, source_epsg: int, target_epsg: int) -> Point:
-    """
-    Project a Point to the local UTM zone.
-    """
+def _project_point(
+    point: Point, source_epsg: int, target_epsg: int
+    ) -> Point:
     transformer = create_transformer(source_epsg, target_epsg)
     return Point(transformer.transform(point.x, point.y))
 
-def _project_polygon_local_utm(polygon: Polygon, source_epsg: int, target_epsg: int) -> Polygon:
-    """
-    Project a Polygon to the local UTM zone.
-    """
+def _project_linestring(
+    linestring: LineString, source_epsg: int, target_epsg: int
+    ) -> LineString:
+    transformer = create_transformer(source_epsg, target_epsg)
+    return LineString([transformer.transform(*xy) for xy in linestring.coords])
+
+def _project_polygon(
+    polygon: Polygon, source_epsg: int, target_epsg: int
+    ) -> Polygon:
     transformer = create_transformer(source_epsg, target_epsg)
 
     exterior_coords = [transformer.transform(*xy) for xy in polygon.exterior.coords]
@@ -98,13 +100,22 @@ def _project_polygon_local_utm(polygon: Polygon, source_epsg: int, target_epsg: 
 
     return Polygon(exterior_coords, interior_coords)
 
-def _project_linestring_local_utm(
-        linestring: LineString, source_epsg: int, target_epsg: int) -> LineString:
-    """
-    Project a LineString to the local UTM zone.
-    """
-    transformer = create_transformer(source_epsg, target_epsg)
-    return LineString([transformer.transform(*xy) for xy in linestring.coords])
+def _project_multipoint(
+    multipoint: MultiPoint, source_epsg: int, target_epsg: int
+    ) -> MultiPoint:
+    return MultiPoint([_project_point(p, source_epsg, target_epsg)
+                       for p in multipoint.geoms])
+def _project_multipolygon(
+    multipolygon: MultiPolygon, source_epsg: int, target_epsg: int
+    ) -> MultiPolygon:
+    return MultiPolygon([_project_polygon(p, source_epsg, target_epsg)
+                         for p in multipolygon.geoms])
+
+def _project_multilinestring(
+    multilinestring: MultiLineString, source_epsg: int, target_epsg: int
+    ) -> MultiLineString:
+    return MultiLineString([_project_linestring(ls, source_epsg, target_epsg)
+                            for ls in multilinestring.geoms])
 
 def project_polygon_equal_area(multipolygon: Union[Polygon, MultiPolygon]):
     """
