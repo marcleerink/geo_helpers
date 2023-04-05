@@ -10,12 +10,12 @@ from shapely.ops import BaseGeometry
 
 
 def determine_utm_epsg(
-        source_epsg:int,
-        west_lon:float,
-        south_lat:float,
-        east_lon:float,
-        north_lat:float,
-        contains: bool = True) -> int:
+    source_epsg:int,
+    west_lon:float,
+    south_lat:float,
+    east_lon:float,
+    north_lat:float,
+    contains: bool = True) -> int:
     """
     Determine the UTM EPSG code for a given epsg code and bounding box
 
@@ -59,6 +59,7 @@ def create_transformer(
 
     if is_utm_epsg(target_epsg):
         target_crs = pyproj.CRS.from_epsg(target_epsg)
+
     else:
         if centroid is None:
             raise ValueError("A centroid must be provided for non-UTM projections")
@@ -107,6 +108,41 @@ def project_geometry_local_utm(
 
     return geom_map[type(geometry)](geometry, source_epsg, target_epsg)
 
+def project_geometry_equal_area(
+    geometry:BaseGeometry,
+    source_epsg:int=4326,
+    target_epsg:int=3857
+    ) -> BaseGeometry:
+    """
+    Project any shapely geometry to an equal-area projection centered on the centroid.
+    For multi-part geometries, each part is projected separately.
+
+    :param geometry: shapely geometry to project
+    :param source_epsg: EPSG code of the source geometry
+
+    :return: projected shapely geometry
+    :raises TypeError: if the geometry type is not supported
+    """
+    geom_map = {
+        Point: _project_point,
+        LineString: _project_linestring,
+        LinearRing: _project_linear_ring,
+        Polygon: _project_polygon,
+        MultiPoint: lambda mp, source_epsg, _: MultiPoint(
+            [project_geometry_equal_area(p, source_epsg, target_epsg) for p in mp.geoms]),
+        MultiLineString: lambda mls, source_epsg, target_epsg: MultiLineString(
+            [project_geometry_equal_area(ls, source_epsg, target_epsg) for ls in mls.geoms]),
+        MultiPolygon: lambda mp, source_epsg, target_epsg: MultiPolygon(
+            [project_geometry_equal_area(p, source_epsg, target_epsg) for p in mp.geoms]),
+        GeometryCollection: lambda gc, source_epsg, target_epsg: GeometryCollection(
+            [project_geometry_equal_area(g, source_epsg) for g in gc.geoms])
+    }
+
+    if type(geometry) not in geom_map:
+        raise TypeError(f"Unsupported geometry type: {type(geometry)}")
+
+    return geom_map[type(geometry)](geometry, source_epsg, target_epsg)
+
 
 def _project_point(
     point: Point, source_epsg: int, target_epsg: int
@@ -138,113 +174,3 @@ def _project_polygon(
         interior_coords.append([transformer.transform(*xy) for xy in interior.coords])
 
     return Polygon(exterior_coords, interior_coords)
-
-def project_geometry_equal_area(
-    geometry:BaseGeometry,
-    source_epsg:int=4326,
-    target_epsg:int=3857
-    ) -> BaseGeometry:
-    """
-    Project any shapely geometry to an equal-area projection centered on the centroid.
-    For multi-part geometries, each part is projected separately.
-
-    :param geometry: shapely geometry to project
-    :param source_epsg: EPSG code of the source geometry
-
-    :return: projected shapely geometry
-    :raises TypeError: if the geometry type is not supported
-    """
-    geom_map = {
-        Point: _project_point,
-        LineString: _project_linestring,
-        LinearRing: _project_linear_ring,
-        Polygon: _project_polygon,
-        MultiPoint: lambda mp, source_epsg, _: MultiPoint(
-            [project_geometry_equal_area(p, source_epsg, target_epsg) for p in mp.geoms]),
-        MultiLineString: lambda mls, source_epsg, _: MultiLineString(
-            [project_geometry_equal_area(ls, source_epsg, target_epsg) for ls in mls.geoms]),
-        MultiPolygon: lambda mp, source_epsg, _: MultiPolygon(
-            [project_geometry_equal_area(p, source_epsg, target_epsg) for p in mp.geoms]),
-        GeometryCollection: lambda gc, source_epsg, _: GeometryCollection(
-            [project_geometry_equal_area(g, source_epsg) for g in gc.geoms])
-    }
-
-    if type(geometry) not in geom_map:
-        raise TypeError(f"Unsupported geometry type: {type(geometry)}")
-
-    return geom_map[type(geometry)](geometry, source_epsg)
-
-def _project_point_equal_area(point: Point, source_epsg: int) -> Point:
-    transformer = create_transformer_equal_area(source_epsg, point.x, point.y)
-    return Point(transformer.transform(point.x, point.y))
-
-def _project_linestring_equal_area(linestring: LineString, source_epsg: int) -> LineString:
-    transformer = create_transformer_equal_area(source_epsg)
-    return LineString([transformer.transform(*xy) for xy in linestring.coords])
-
-def _project_linear_ring_equal_area(linear_ring: LinearRing, source_epsg: int) -> LinearRing:
-    transformer = create_transformer_equal_area(source_epsg)
-    return LinearRing([transformer.transform(*xy) for xy in linear_ring.coords])
-
-def _project_polygon_equal_area(polygon: Polygon, source_epsg: int) -> Polygon:
-    transformer = create_transformer_equal_area(source_epsg)
-
-    exterior_coords = [transformer.transform(*xy) for xy in polygon.exterior.coords]
-
-    interior_coords = []
-    for interior in polygon.interiors:
-        interior_coords.append([transformer.transform(*xy) for xy in interior.coords])
-
-    return Polygon(exterior_coords, interior_coords)
-
-def create_transformer_equal_area(
-    source_epsg: int, lon: float, lat: float) -> pyproj.Transformer:
-    """
-    Create a pyproj.Transformer object for transforming from WGS 84 to an equal-area projection centered on the centroid of
-    the geometry.
-
-    :param source_epsg: EPSG code of the source geometry
-
-    :return: pyproj.Transformer object
-    """
-    source_crs = pyproj.CRS.from_epsg(source_epsg)
-    target_crs = pyproj.CRS.from_proj4(f"+proj=aea +lat_1={lat} +lat_2={lat} +lat_0={lat} +lon_0={lon}")
-def project_polygon_equal_area(multipolygon: Union[Polygon, MultiPolygon]):
-    """
-    Project a Polygon or MultiPolygon object to an equal-area projection centered on the centroid.
-    """
-    polys = []
-    if isinstance(multipolygon, Polygon):
-        multipolygon = MultiPolygon([multipolygon])
-
-    for poly in multipolygon.geoms:
-        # Determine the centroid of the polygon
-        centroid = poly.centroid
-        lon, lat = centroid.x, centroid.y
-
-        # Define the source CRS (WGS 84)
-        source_crs = pyproj.CRS.from_epsg(4326)
-
-        # Define the target CRS (an equal-area projection centered on the centroid)
-        target_crs = pyproj.CRS.from_proj4(
-            f"+proj=aea +lat_1={lat} +lat_2={lat} +lat_0={lat} +lon_0={lon}")
-
-        # Create the projection transformation
-        transformer = pyproj.Transformer.from_crs(source_crs, target_crs, always_xy=True)
-
-        # Project the polygon to the equal-area projection
-        polys.append(Polygon([transformer.transform(*xy) for xy in poly.exterior.coords]))
-
-    # Return the projected MultiPolygon
-    return MultiPolygon(polys)
-
-def project_geom_equal_area(geom: BaseGeometry):
-    """
-    Project a shapely geometry to an equal-area projection centered on the centroid.
-    """
-    if isinstance(geom, Polygon):
-        return project_polygon_equal_area(geom)
-    elif isinstance(geom, MultiPolygon):
-        return project_polygon_equal_area(geom)
-    else:
-        raise TypeError("Unsupported geometry type")
