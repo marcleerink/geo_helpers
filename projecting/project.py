@@ -38,7 +38,6 @@ def create_transformer(
     source_crs = pyproj.CRS.from_epsg(source_epsg)
     target_crs = pyproj.CRS.from_epsg(target_epsg)
 
-
     aoi = AreaOfInterest(
         centroid.x, centroid.y, centroid.x, centroid.y) if centroid else None
 
@@ -63,106 +62,32 @@ def project_geometry_local_utm(
         Point: _project_point_local_utm,
         LineString: _project_linestring_local_utm,
         Polygon: _project_polygon_local_utm,
-        MultiLineString: lambda mls, source_epsg: MultiLineString(
-            [_project_linestring_local_utm(ls, source_epsg) for ls in mls.geoms]),
-        MultiPolygon: lambda mp, source_epsg: MultiPolygon(
-            [_project_polygon_local_utm(p, source_epsg) for p in mp.geoms]),
-        GeometryCollection: lambda gc, source_epsg: GeometryCollection(
+        MultiLineString: lambda mls, source_epsg, target_epsg: MultiLineString(
+            [_project_linestring_local_utm(ls, source_epsg, target_epsg)
+             for ls in mls.geoms]),
+        MultiPolygon: lambda mp, source_epsg, target_epsg: MultiPolygon(
+            [_project_polygon_local_utm(p, source_epsg, target_epsg) for p in mp.geoms]),
+        GeometryCollection: lambda gc, source_epsg, _: GeometryCollection(
             [project_geometry_local_utm(g, source_epsg) for g in gc.geoms])
     }
 
     if type(geometry) not in geom_map:
         raise TypeError(f"Unsupported geometry type: {type(geometry)}")
 
-    return geom_map[type(geometry)](geometry, source_epsg)
+    return geom_map[type(geometry)](
+        geometry, source_epsg, determine_utm_epsg(geometry.centroid.x, geometry.centroid.y))
 
-def project_geometry_equal_area(
-    geometry: Union[Point, LineString, Polygon, MultiLineString, MultiPolygon, GeometryCollection],
-    source_epsg: int = 4326,
-    target_epsg: int = 3035
-    ) -> Union[Point, LineString, Polygon, MultiLineString, MultiPolygon, GeometryCollection]:
-    """
-    Project any shapely geometry to the equal area projection centered on the geometry's centroid.
-    For multi-part geometries, each part is projected separately.
-
-    :param geometry: shapely geometry to project
-    :param source_epsg: EPSG code of the source geometry
-    :param target_epsg: EPSG code of the target projection
-
-    :return: projected shapely geometry
-    :raises TypeError: if the geometry type is not supported
-    """
-
-    geom_map = {
-        Point: _project_point_equal_area,
-        LineString: _project_linestring_equal_area,
-        Polygon: _project_polygon_equal_area,
-        MultiLineString: lambda mls, source_epsg, target_epsg: MultiLineString(
-            [_project_linestring_equal_area(ls, source_epsg, target_epsg) for ls in mls.geoms]),
-        MultiPolygon: lambda mp, source_epsg, target_epsg: MultiPolygon(
-            [_project_polygon_equal_area(p, source_epsg, target_epsg) for p in mp.geoms]),
-        GeometryCollection: lambda gc, source_epsg, target_epsg: GeometryCollection(
-            [project_geometry_equal_area(g, source_epsg, target_epsg) for g in gc.geoms])
-    }
-
-    if type(geometry) not in geom_map:
-        raise TypeError(f"Unsupported geometry type: {type(geometry)}")
-
-    return geom_map[type(geometry)](geometry, source_epsg, target_epsg)
-
-def _project_point_equal_area(point: Point, source_epsg: int, target_epsg: int) -> Point:
-    """
-    Project a Point to the equal area projection centered on the Point.
-    """
-    lon, lat = point.x, point.y
-    transformer = create_transformer(source_epsg, target_epsg)
-
-    # Project the point to the equal area projection
-    return Point(transformer.transform(lon, lat))
-
-def _project_polygon_equal_area(polygon: Polygon, source_epsg: int, target_epsg: int) -> Polygon:
-    """
-    Project a Polygon to the equal area projection centered on the Polygon.
-    """
-    transformer = create_transformer(source_epsg, target_epsg)
-
-    exterior_coords = [transformer.transform(*xy) for xy in polygon.exterior.coords]
-
-    interior_coords = []
-    for interior in polygon.interiors:
-        interior_coords.append([transformer.transform(*xy) for xy in interior.coords])
-
-    return Polygon(exterior_coords, interior_coords)
-
-def _project_linestring_equal_area(linestring: LineString, source_epsg: int, target_epsg: int) -> LineString:
-    """
-    Project a LineString to the equal area projection centered on the LineString.
-    """
-    transformer = create_transformer(source_epsg, target_epsg)
-
-    coords = [transformer.transform(*xy) for xy in linestring.coords]
-
-    return LineString(coords)
-
-
-
-def _project_point_local_utm(point: Point, source_epsg: int) -> Point:
+def _project_point_local_utm(point: Point, source_epsg: int, target_epsg: int) -> Point:
     """
     Project a Point to the local UTM zone.
     """
-    lon, lat = point.x, point.y
-    target_epsg = determine_utm_epsg(lon, lat)
-
     transformer = create_transformer(source_epsg, target_epsg)
+    return Point(transformer.transform(point.x, point.y))
 
-    # Project the point to the local UTM zone
-    return Point(transformer.transform(lon, lat))
-
-def _project_polygon_local_utm(polygon: Polygon, source_epsg: int) -> Polygon:
+def _project_polygon_local_utm(polygon: Polygon, source_epsg: int, target_epsg: int) -> Polygon:
     """
     Project a Polygon to the local UTM zone.
     """
-    target_epsg = determine_utm_epsg(polygon.centroid.x, polygon.centroid.y)
     transformer = create_transformer(source_epsg, target_epsg)
 
     exterior_coords = [transformer.transform(*xy) for xy in polygon.exterior.coords]
@@ -173,11 +98,11 @@ def _project_polygon_local_utm(polygon: Polygon, source_epsg: int) -> Polygon:
 
     return Polygon(exterior_coords, interior_coords)
 
-def _project_linestring_local_utm(linestring: LineString, source_epsg: int) -> LineString:
+def _project_linestring_local_utm(
+        linestring: LineString, source_epsg: int, target_epsg: int) -> LineString:
     """
     Project a LineString to the local UTM zone.
     """
-    target_epsg = determine_utm_epsg(linestring.centroid.x, linestring.centroid.y)
     transformer = create_transformer(source_epsg, target_epsg)
     return LineString([transformer.transform(*xy) for xy in linestring.coords])
 
