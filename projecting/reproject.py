@@ -9,19 +9,26 @@ from shapely.geometry import (GeometryCollection, LinearRing, LineString,
                               Polygon)
 
 
-def determine_utm_epsg(lon: float, lat: float) -> int:
-    """Determine the UTM epsg code for a given longitude and latitude.
+def determine_utm_epsg(
+        source_epsg:int,
+        west_lon:float,
+        south_lat:float,
+        east_lon:float,
+        north_lat:float) -> int:
+    """ Determine the UTM EPSG code for a given source EPSG code and coordinate.
+
+    :param source_epsg: The source EPSG code
+    :param x: The x coordinate
+    :param y: The y coordinate
+    :return: The UTM EPSG code
     """
-    utm_crs_list = query_utm_crs_info(
-        datum_name="WGS 84",
+    utm_crs_info = query_utm_crs_info(
+        datum_name= 'WGS84',
         area_of_interest=AreaOfInterest(
-            west_lon_degree=lon,
-            south_lat_degree=lat,
-            east_lon_degree=lon,
-            north_lat_degree=lat,
-        ),
-    )
-    return int(utm_crs_list[0].code)
+                west_lon, south_lat, east_lon, north_lat),
+        contains=True)
+
+    return int(utm_crs_info[0].code)
 
 def create_transformer(
     source_epsg: int,
@@ -77,8 +84,11 @@ def project_geometry_local_utm(
     if type(geometry) not in geom_map:
         raise TypeError(f"Unsupported geometry type: {type(geometry)}")
 
+    x, y = geometry.centroid.x, geometry.centroid.y
+
     return geom_map[type(geometry)](
-        geometry, source_epsg, determine_utm_epsg(geometry.centroid.x, geometry.centroid.y))
+        geometry, source_epsg, determine_utm_epsg(
+            source_epsg , x, y, x, y))
 
 
 def _project_point(
