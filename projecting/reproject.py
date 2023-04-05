@@ -16,7 +16,7 @@ def determine_utm_epsg(
         south_lat:float,
         east_lon:float,
         north_lat:float,
-        contains = False) -> int:
+        contains: bool = True) -> int:
     """
     Determine the UTM EPSG code for a given epsg code and bounding box
 
@@ -25,6 +25,8 @@ def determine_utm_epsg(
     :param south_lat: The southern latitude
     :param east_lon: The eastern longitude
     :param north_lat: The northern latitude
+    :param contains: If True, the UTM CRS must contain the bounding box,
+        if False, the UTM CRS must intersect the bounding box.
 
     :return: The UTM EPSG code
 
