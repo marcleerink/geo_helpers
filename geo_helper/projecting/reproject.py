@@ -42,7 +42,7 @@ def determine_utm_epsg(
     if not utm_crs_info:
         raise ValueError(
             f'No UTM CRS found for the datum {datum_name} and bbox')
-    print(utm_crs_info[0].code)
+
     return int(utm_crs_info[0].code)
 
 def is_utm_epsg(epsg: int) -> bool:
@@ -56,6 +56,14 @@ def create_transformer(
     ) -> pyproj.Transformer:
     """
     Create a pyproj transformer for a given source and target EPSG code.
+
+    :param source_epsg: The source EPSG code
+    :param target_epsg: The target EPSG code
+    :param centroid: The centroid of the geometry to be projected.
+        Only required for non-UTM projections.
+
+    :return: A pyproj transformer
+    :raises ValueError: If a centroid is not provided for non-UTM projections
     """
     source_crs = pyproj.CRS.from_epsg(source_epsg)
 
