@@ -42,7 +42,7 @@ def determine_utm_epsg(
     if not utm_crs_info:
         raise ValueError(
             f'No UTM CRS found for the datum {datum_name} and bbox')
-
+    print(utm_crs_info[0].code)
     return int(utm_crs_info[0].code)
 
 def is_utm_epsg(epsg: int) -> bool:
@@ -54,7 +54,8 @@ def create_transformer(
     target_epsg: int,
     centroid: Optional[Point] = None
     ) -> pyproj.Transformer:
-    """ Create a pyproj transformer for a given source and target EPSG code.
+    """
+    Create a pyproj transformer for a given source and target EPSG code.
     """
     source_crs = pyproj.CRS.from_epsg(source_epsg)
 
@@ -66,7 +67,8 @@ def create_transformer(
 
         lon, lat = centroid.x, centroid.y
         proj_name = pyproj.CRS.from_epsg(target_epsg).to_dict()['proj']
-        target_crs = pyproj.CRS(proj=proj_name, lat_1=lat, lat_2=lat, lat_0=lat, lon_0=lon)
+        target_crs = pyproj.CRS(
+            proj=proj_name, lat_1=lat, lat_2=lat, lat_0=lat, lon_0=lon)
 
     return pyproj.Transformer.from_crs(
         source_crs, target_crs, always_xy=True)
@@ -87,7 +89,6 @@ def project_geometry_equal_area(
     :return: projected shapely geometry
     :raises TypeError: if the geometry type is not supported
     """
-
     return _project_geometry(geometry, source_epsg, target_epsg)
 
 def project_geometry_local_utm(
@@ -104,7 +105,6 @@ def project_geometry_local_utm(
     :return: projected shapely geometry
     :raises TypeError: if the geometry type is not supported
     """
-
     return _project_geometry(geometry, source_epsg)
 
 def _project_geometry(
@@ -117,14 +117,14 @@ def _project_geometry(
         LineString: _project_linestring,
         LinearRing: _project_linear_ring,
         Polygon: _project_polygon,
-        MultiPoint: lambda mp, source_epsg, _: MultiPoint(
-            [_project_geometry(p, source_epsg) for p in mp.geoms]),
-        MultiLineString: lambda mls, source_epsg, _: MultiLineString(
-            [_project_geometry(ls, source_epsg) for ls in mls.geoms]),
-        MultiPolygon: lambda mp, source_epsg, _: MultiPolygon(
-            [_project_geometry(p, source_epsg) for p in mp.geoms]),
-        GeometryCollection: lambda gc, source_epsg, _: GeometryCollection(
-            [_project_geometry(g, source_epsg) for g in gc.geoms])
+        MultiPoint: lambda mp, source_epsg, target_epsg: MultiPoint(
+            [_project_geometry(p, source_epsg, target_epsg) for p in mp.geoms]),
+        MultiLineString: lambda mls, source_epsg, target_epsg: MultiLineString(
+            [_project_geometry(ls, source_epsg, target_epsg) for ls in mls.geoms]),
+        MultiPolygon: lambda mp, source_epsg, target_epsg: MultiPolygon(
+            [_project_geometry(p, source_epsg, target_epsg) for p in mp.geoms]),
+        GeometryCollection: lambda gc, source_epsg, target_epsg: GeometryCollection(
+            [_project_geometry(g, source_epsg, target_epsg) for g in gc.geoms]),
     }
 
     if type(geometry) not in geom_map:
@@ -166,3 +166,17 @@ def _project_polygon(
         interior_coords.append([transformer.transform(*xy) for xy in interior.coords])
 
     return Polygon(exterior_coords, interior_coords)
+
+if __name__ == '__main__':
+    POINT = Point(8.0, 50.0)
+    LINESTRING = LineString([(8.0, 50.0), (8.1, 50.1)])
+    LINEARRING = LinearRing([(8.0, 50.0), (8.1, 50.1), (8.1, 50.0)])
+    POLYGON = Polygon([(8.0, 50.0), (8.1, 50.1), (8.1, 50.0)])
+    MULTIPOINT = MultiPoint([POINT])
+    MULTIPOLYGON = MultiPolygon([POLYGON])
+    MULTILINESTRING = MultiLineString([LINESTRING])
+    GEOMETRYCOLLECTION = GeometryCollection(
+        [POINT, LINESTRING, POLYGON, MULTIPOINT, MULTIPOLYGON, MULTILINESTRING])
+
+    print(project_geometry_local_utm(GEOMETRYCOLLECTION))
+    print(project_geometry_equal_area(GEOMETRYCOLLECTION))
