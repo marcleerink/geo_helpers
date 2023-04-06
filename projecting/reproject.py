@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Optional
 
 import pyproj
@@ -8,6 +9,24 @@ from shapely.geometry import (GeometryCollection, LinearRing, LineString,
                               Polygon)
 from shapely.ops import BaseGeometry
 
+
+class GeometryType(Enum):
+    POINT = Point
+    LINESTRING = LineString
+    LINEARRING = LinearRing
+    POLYGON = Polygon
+    MULTIPOINT = MultiPoint
+    MULTILINESTRING = MultiLineString
+    MULTIPOLYGON = MultiPolygon
+    GEOMETRYCOLLECTION = GeometryCollection
+
+    def is_single(self):
+        return self in [self.POINT, self.LINESTRING, self.LINEARRING,
+                        self.POLYGON]
+
+    def is_multi(self):
+        return self in [self.MULTIPOINT, self.MULTILINESTRING,
+                        self.MULTIPOLYGON]
 
 def determine_utm_epsg(
     source_epsg:int,
