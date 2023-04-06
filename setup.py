@@ -1,12 +1,12 @@
 from setuptools import find_packages, setup
 
 setup(
-    name="geo_helper",
+    name="geo-helper",
     version="0.1",
     author="Marc Leerink",
     author_email="marc.leerink@planet.com",
     description="helper modules for working with geospatial data",
-    python_requires=">=3.11",
+    python_requires=">=3.9",
     license="MIT",
     classifiers=[
         "Programming Language :: Python :: 3.11",

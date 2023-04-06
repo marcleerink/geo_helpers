@@ -6,9 +6,10 @@ from shapely.geometry import (GeometryCollection, LinearRing, LineString,
                               MultiLineString, MultiPoint, MultiPolygon, Point,
                               Polygon, shape)
 
-from ..projecting.reproject import (create_transformer, determine_utm_epsg,
-                                    reproject_geometry,
-                                    reproject_geometry_local_utm)
+from ..geo_helper.projecting.reproject import (create_transformer,
+                                               determine_utm_epsg,
+                                               reproject_geometry,
+                                               reproject_geometry_local_utm)
 
 POINT = Point(8.0, 50.0)
 LINESTRING = LineString([(8.0, 50.0), (8.1, 50.1)])
@@ -29,7 +30,7 @@ POLYGON_EQUADOR = open_geom('tests/assets/1sqkm_equador.geojson')
 POLYGON_JAPAN = open_geom('tests/assets/1sqkm_japan.geojson')
 POLYGON_GREENLAND = open_geom('tests/assets/1sqkm_greenland.geojson')
 POLYGON_ANTARCTICA = open_geom('tests/assets/1sqkm_antarctica.geojson')
-
+POLYGON_KAZAKHSTAN = open_geom('tests/assets/1msqkm_kazakhstan.geojson')
 
 def test_create_transformer():
     transformer = create_transformer(4326, 32632)
@@ -166,27 +167,29 @@ def test_project_geom_local_utm_geometrycollection():
     assert projected.geoms[5].geoms[0].coords[1][1] == 5550137.09562659
 
 def test_project_determine_utm_epsg_called_for_each_geom():
-    with patch('geo_helper.projecting.reproject.determine_utm_epsg',
+    with patch('geo_helper.geo_helper.projecting.reproject.determine_utm_epsg',
                wraps=determine_utm_epsg) as mock:
         reproject_geometry_local_utm(GEOMETRYCOLLECTION)
     assert mock.call_count == 6
 
-@pytest.mark.parametrize('polygon',
-                         [POLYGON_GERMANY, POLYGON_EQUADOR, POLYGON_GREENLAND,
-                          POLYGON_ANTARCTICA, POLYGON_JAPAN],
-                         ids=['germany', 'equador', 'greenland',
-                              'antarctica', 'japan'])
+@pytest.mark.parametrize(
+    'polygon',
+    [POLYGON_GERMANY, POLYGON_EQUADOR, POLYGON_GREENLAND,
+    POLYGON_ANTARCTICA, POLYGON_JAPAN],
+    ids=['germany', 'equador', 'greenland',
+        'antarctica', 'japan'])
 def test_project_geometry_local_utm_correct_polygon_area(polygon):
     projected = reproject_geometry_local_utm(polygon)
     assert projected.geom_type == 'Polygon'
-    assert projected.area / 1000000 == pytest.approx(1, abs=0.01)
+    assert projected.area / 1e6 == pytest.approx(1, abs=0.01)
 
-@pytest.mark.parametrize('polygon',
-                            [POLYGON_GERMANY, POLYGON_EQUADOR, POLYGON_GREENLAND,
-                             POLYGON_ANTARCTICA, POLYGON_JAPAN],
-                            ids=['germany', 'equador', 'greenland',
-                                 'antarctica', 'japan'])
+@pytest.mark.parametrize(
+    'polygon',
+    [POLYGON_GERMANY, POLYGON_EQUADOR, POLYGON_GREENLAND,
+    POLYGON_ANTARCTICA, POLYGON_JAPAN],
+    ids=['germany', 'equador', 'greenland',
+            'antarctica', 'japan'])
 def test_project_geometry_correct_polygon_area(polygon):
     projected = reproject_geometry(polygon)
     assert projected.geom_type == 'Polygon'
-    assert projected.area / 1000000 == pytest.approx(1, abs=0.01)
+    assert projected.area / 1e6 == pytest.approx(1, abs=0.01)

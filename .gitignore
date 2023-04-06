@@ -1,3 +1,4 @@
+#venv
 venv/
 
 # pytest
@@ -6,6 +7,11 @@ venv/
 #python
 *.pyc
 *__pycache__*
+
+#package
+*.egg-info
+dist/
+build/
 
 #mac
 .DS_Store
