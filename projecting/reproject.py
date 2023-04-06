@@ -67,47 +67,51 @@ def create_transformer(
 
         lon, lat = centroid.x, centroid.y
         proj_name = pyproj.CRS.from_epsg(target_epsg).to_dict()['proj']
-        target_crs = pyproj.CRS(
-            proj=proj_name, lat_1=lat, lat_2=lat, lat_0=lat, lon_0=lon)
+        target_crs = pyproj.CRS.from_proj4(
+            f"+proj={proj_name} +lat_1={lat} +lat_2={lat} +lat_0={lat} +lon_0={lon}")
 
     return pyproj.Transformer.from_crs(
         source_crs, target_crs, always_xy=True)
 
 
-def project_geometry_equal_area(
-    geometry:BaseGeometry,
-    source_epsg:int=4326,
-    target_epsg:int=3857
+def reproject_geometry(
+    geometry: BaseGeometry,
+    source_epsg: int = 4326,
+    target_epsg: int = 9822
     ) -> BaseGeometry:
     """
-    Project any shapely geometry to an equal-area projection centered on the centroid.
+    Reproject a shapely geometry to a EPSG projection centered on the centroid.
     For multi-part geometries, each part is processed separately.
 
     :param geometry: shapely geometry to project
-    :param source_epsg: EPSG code of the source geometry
+    :param source_epsg: EPSG code of the source geometry.
+        Default is WGS84 (4326)
+    :param target_epsg: EPSG code of the target geometry.
+        Defaults is Lambert Conformal Conic (9822)
 
     :return: projected shapely geometry
     :raises TypeError: if the geometry type is not supported
     """
-    return _project_geometry(geometry, source_epsg, target_epsg)
+    return _reproject(geometry, source_epsg, target_epsg)
 
-def project_geometry_local_utm(
-    geometry:BaseGeometry,
-    source_epsg:int=4326,
+def reproject_geometry_local_utm(
+    geometry: BaseGeometry,
+    source_epsg: int = 4326,
     ) -> BaseGeometry:
     """
-    Project any shapely geometry to a local UTM projection.
+    Reproject a shapely geometry to a local UTM projection.
     For multi-part geometries, each part is processed separately.
 
     :param geometry: shapely geometry to project
-    :param source_epsg: EPSG code of the source geometry
+    :param source_epsg: EPSG code of the source geometry.
+        Default is WGS84 (4326)
 
     :return: projected shapely geometry
     :raises TypeError: if the geometry type is not supported
     """
-    return _project_geometry(geometry, source_epsg)
+    return _reproject(geometry, source_epsg)
 
-def _project_geometry(
+def _reproject(
     geometry: BaseGeometry,
     source_epsg: int = 4326,
     target_epsg: Optional[int] = None,
@@ -118,13 +122,13 @@ def _project_geometry(
         LinearRing: _project_linear_ring,
         Polygon: _project_polygon,
         MultiPoint: lambda mp, source_epsg, target_epsg: MultiPoint(
-            [_project_geometry(p, source_epsg, target_epsg) for p in mp.geoms]),
+            [_reproject(p, source_epsg, target_epsg) for p in mp.geoms]),
         MultiLineString: lambda mls, source_epsg, target_epsg: MultiLineString(
-            [_project_geometry(ls, source_epsg, target_epsg) for ls in mls.geoms]),
+            [_reproject(ls, source_epsg, target_epsg) for ls in mls.geoms]),
         MultiPolygon: lambda mp, source_epsg, target_epsg: MultiPolygon(
-            [_project_geometry(p, source_epsg, target_epsg) for p in mp.geoms]),
+            [_reproject(p, source_epsg, target_epsg) for p in mp.geoms]),
         GeometryCollection: lambda gc, source_epsg, target_epsg: GeometryCollection(
-            [_project_geometry(g, source_epsg, target_epsg) for g in gc.geoms]),
+            [_reproject(g, source_epsg, target_epsg) for g in gc.geoms]),
     }
 
     if type(geometry) not in geom_map:

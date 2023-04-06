@@ -1,5 +1,4 @@
 venv/
-tests/
 
 # pytest
 .pytest_cache/
