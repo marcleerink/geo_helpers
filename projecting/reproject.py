@@ -1,4 +1,3 @@
-from enum import Enum
 from typing import Optional
 
 import pyproj
@@ -9,24 +8,6 @@ from shapely.geometry import (GeometryCollection, LinearRing, LineString,
                               Polygon)
 from shapely.ops import BaseGeometry
 
-
-class GeometryType(Enum):
-    POINT = Point
-    LINESTRING = LineString
-    LINEARRING = LinearRing
-    POLYGON = Polygon
-    MULTIPOINT = MultiPoint
-    MULTILINESTRING = MultiLineString
-    MULTIPOLYGON = MultiPolygon
-    GEOMETRYCOLLECTION = GeometryCollection
-
-    def is_single(self):
-        return self in [self.POINT, self.LINESTRING, self.LINEARRING,
-                        self.POLYGON]
-
-    def is_multi(self):
-        return self in [self.MULTIPOINT, self.MULTILINESTRING,
-                        self.MULTIPOLYGON]
 
 def determine_utm_epsg(
     source_epsg:int,
@@ -185,17 +166,3 @@ def _project_polygon(
         interior_coords.append([transformer.transform(*xy) for xy in interior.coords])
 
     return Polygon(exterior_coords, interior_coords)
-
-if __name__ == '__main__':
-    POINT = Point(8.0, 50.0)
-    LINESTRING = LineString([(8.0, 50.0), (8.1, 50.1)])
-    LINEARRING = LinearRing([(8.0, 50.0), (8.1, 50.1), (8.1, 50.0)])
-    POLYGON = Polygon([(8.0, 50.0), (8.1, 50.1), (8.1, 50.0)])
-    MULTIPOINT = MultiPoint([POINT])
-    MULTIPOLYGON = MultiPolygon([POLYGON])
-    MULTILINESTRING = MultiLineString([LINESTRING])
-    GEOMETRYCOLLECTION = GeometryCollection(
-        [POINT, LINESTRING, POLYGON, MULTIPOINT, MULTIPOLYGON, MULTILINESTRING])
-
-    print(project_geometry_local_utm(GEOMETRYCOLLECTION))
-    print(project_geometry_equal_area(GEOMETRYCOLLECTION))
