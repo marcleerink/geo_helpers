@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Optional
 
 import pyproj
 from pyproj.aoi import AreaOfInterest
@@ -42,6 +42,7 @@ def determine_utm_epsg(
     if not utm_crs_info:
         raise ValueError(
             f'No UTM CRS found for the datum {datum_name} and bbox')
+
     return int(utm_crs_info[0].code)
 
 def is_utm_epsg(epsg: int) -> bool:
@@ -59,7 +60,6 @@ def create_transformer(
 
     if is_utm_epsg(target_epsg):
         target_crs = pyproj.CRS.from_epsg(target_epsg)
-
     else:
         if centroid is None:
             raise ValueError("A centroid must be provided for non-UTM projections")
@@ -130,7 +130,7 @@ def _project_geometry(
     if type(geometry) not in geom_map:
         raise TypeError(f"Unsupported geometry type: {type(geometry)}")
 
-    if target_epsg is None:
+    if target_epsg is None and isinstance(geometry, (Point, LineString, LinearRing, Polygon)):
         x, y = geometry.centroid.x, geometry.centroid.y
         target_epsg = determine_utm_epsg(source_epsg, x, y, x, y)
 
