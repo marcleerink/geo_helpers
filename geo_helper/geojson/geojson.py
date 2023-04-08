@@ -4,51 +4,24 @@ import json
 from enum import Enum
 from typing import Union
 
-from shapely.geometry import (LineString, MultiLineString, MultiPoint,
-                              MultiPolygon, Point, Polygon, shape)
+from shapely.geometry import (LinearRing, LineString, MultiLineString,
+                              MultiPoint, MultiPolygon, Point, Polygon, shape)
 
 
+class NotSupportedGeometryType(Exception):
+    """Exception for not supported geometry type"""
 class InvalidGeojsonError(Exception):
     """Exception for invalid geojson"""
 
-class InvalidGeojsonFeatureError(Exception):
-    """Exception for invalid geojson feature"""
-
-class InvalidGeojsonGeometryError(Exception):
-    """Exception for invalid geojson geometry"""
-
-class NotSupportedGeometryTypeError(Exception):
-    """Exception for not supported geometry type"""
-
 class GeometryType(Enum):
-    """Supported geometry types for Planet API"""
-    POINT = Point
-    MULTIPOINT = MultiPoint
-    LINESTRING = LineString
-    MULTILINESTRING = MultiLineString
-    POLYGON = Polygon
-    MULTIPOLYGON = MultiPolygon
-
-    @property
-    def geom_type(self) -> str:
-        """Returns geometry type string.
-
-        :return: Geometry type string
-        """
-        return self.value.geom_type
-
-    @staticmethod
-    def get_geometry_type(geometry_type: str) -> Union[GeometryType, None]:
-        """Returns GeometryType enum for given geometry type string.
-
-        :param geometry_type: Geometry type string
-
-        :return: GeometryType enum
-        """
-        try:
-            return GeometryType[geometry_type.upper()]
-        except KeyError:
-            return None
+    POINT = 'Point'
+    LINESTRING = 'LineString'
+    LINEARRING = 'LinearRing'
+    POLYGON = 'Polygon'
+    MULTIPOINT = 'MultiPoint'
+    MULTILINESTRING = 'MultiLineString'
+    MULTIPOLYGON = 'MultiPolygon'
+    GEOMETRYCOLLECTION = 'GeometryCollection'
 
 def _read_geojson(geojson_path: str) -> str:
     try:
@@ -111,7 +84,7 @@ def validate_geojson(geojson:dict) -> dict:
 
     features = geojson.get("features", [])
     if not features:
-        raise ValueError("No features found in geojson.")
+        raise InvalidGeojsonError("No features found in geojson.")
 
     for feature in features:
         validate_geojson_feature(feature)
@@ -126,12 +99,12 @@ def validate_geojson_feature(feature: dict) -> dict:
 
     """
     if feature.get("type") != "Feature":
-        raise InvalidGeojsonFeatureError(
+        raise InvalidGeojsonError(
             "Invalid geojson feature. Must have 'type' of 'Feature'")
 
     geometry = feature.get("geometry")
     if geometry is None:
-        raise InvalidGeojsonFeatureError("Invalid geojson feature. Must have geometry field")
+        raise InvalidGeojsonError("Invalid geojson feature. Must have geometry field")
 
     geometry = validate_geojson_geometry(geometry)
 
@@ -143,21 +116,21 @@ def validate_geojson_geometry(geometry: dict) -> dict:
     coordinates: list | None = geometry.get('coordinates')
 
     if not geometry_type:
-        raise InvalidGeojsonGeometryError("No geometry type found")
+        raise InvalidGeojsonError("No geometry type found")
     if not coordinates or not isinstance(coordinates, list):
-        raise InvalidGeojsonGeometryError("No coordinates found")
+        raise InvalidGeojsonError("No coordinates found")
 
     geometry_validation_map = {
-        GeometryType.POINT.__str__: _validate_point_coordinates,
-        GeometryType.MULTIPOINT.__str__: _validate_multipoint_coordinates,
-        GeometryType.LINESTRING.__str__: _validate_linestring_coordinates,
-        GeometryType.MULTILINESTRING.__str__: _validate_multilinestring_coordinates,
-        GeometryType.POLYGON.__str__: _validate_polygon_coordinates,
-        GeometryType.MULTIPOLYGON.__str__: _validate_multipolygon_coordinates,
+        GeometryType.POINT.value: _validate_point_coordinates,
+        GeometryType.MULTIPOINT.value: _validate_multipoint_coordinates,
+        GeometryType.LINESTRING.value: _validate_linestring_coordinates,
+        GeometryType.MULTILINESTRING.value: _validate_multilinestring_coordinates,
+        GeometryType.POLYGON.value: _validate_polygon_coordinates,
+        GeometryType.MULTIPOLYGON.value: _validate_multipolygon_coordinates,
     }
 
-    if geometry_type.lower() not in geometry_validation_map:
-        raise NotSupportedGeometryTypeError(f"Invalid geometry type: {geometry_type}")
+    if geometry_type not in geometry_validation_map:
+        raise NotSupportedGeometryType(f"Geometry type {geometry_type} is not supported")
 
     validation_func = geometry_validation_map[geometry_type]
     validation_func(coordinates)
@@ -166,7 +139,7 @@ def validate_geojson_geometry(geometry: dict) -> dict:
 
 def _validate_point_coordinates(coordinates: list[float]) -> None:
     if len(coordinates) != 2:
-        raise InvalidGeojsonGeometryError("Point must have 2 coordinates")
+        raise InvalidGeojsonError("Point must have 2 coordinates")
 
 def _validate_multipoint_coordinates(coordinates: list[list[float]]) -> None:
     for point in coordinates:
@@ -195,7 +168,6 @@ def _validate_polygon_coordinates(coordinates: list[list[list[float]]]) -> None:
 def _validate_multipolygon_coordinates(coordinates: list[list[list[list[float]]]]) -> None:
     for polygon in coordinates:
         _validate_polygon_coordinates(polygon)
-
 
 def get_shape_from_geojson(geojson_path: str) -> Union[Polygon, MultiPolygon]:
     """returns shapely shape from geojson file"""
