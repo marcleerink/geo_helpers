@@ -193,3 +193,17 @@ def test_project_geometry_correct_polygon_area(polygon):
     projected = reproject_geometry(polygon)
     assert projected.geom_type == 'Polygon'
     assert projected.area / 1e6 == pytest.approx(1, abs=0.01)
+
+def test_projec_geometry_correct_multipolygon_area():
+    multipolygon = MultiPolygon([POLYGON_GERMANY, POLYGON_EQUADOR, POLYGON_GREENLAND,
+                                POLYGON_ANTARCTICA, POLYGON_JAPAN])
+    projected = reproject_geometry(multipolygon)
+    assert projected.geom_type == 'MultiPolygon'
+    assert projected.area / 1e6 == pytest.approx(5, abs=0.01)
+
+def test_project_geometry_local_utm_correct_multipolygon_area():
+    multipolygon = MultiPolygon([POLYGON_GERMANY, POLYGON_EQUADOR, POLYGON_GREENLAND,
+                                POLYGON_ANTARCTICA, POLYGON_JAPAN])
+    projected = reproject_geometry_local_utm(multipolygon)
+    assert projected.geom_type == 'MultiPolygon'
+    assert projected.area / 1e6 == pytest.approx(5, abs=0.01)

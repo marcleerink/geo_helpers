@@ -129,14 +129,10 @@ def _reproject(
         LineString: _project_linestring,
         LinearRing: _project_linear_ring,
         Polygon: _project_polygon,
-        MultiPoint: lambda mp, source_epsg, target_epsg: MultiPoint(
-            [_reproject(p, source_epsg, target_epsg) for p in mp.geoms]),
-        MultiLineString: lambda mls, source_epsg, target_epsg: MultiLineString(
-            [_reproject(ls, source_epsg, target_epsg) for ls in mls.geoms]),
-        MultiPolygon: lambda mp, source_epsg, target_epsg: MultiPolygon(
-            [_reproject(p, source_epsg, target_epsg) for p in mp.geoms]),
-        GeometryCollection: lambda gc, source_epsg, target_epsg: GeometryCollection(
-            [_reproject(g, source_epsg, target_epsg) for g in gc.geoms]),
+        MultiPoint: _project_multi_geom,
+        MultiLineString: _project_multi_geom,
+        MultiPolygon: _project_multi_geom,
+        GeometryCollection: _project_multi_geom,
     }
 
     if type(geometry) not in geom_map:
@@ -147,6 +143,13 @@ def _reproject(
         target_epsg = determine_utm_epsg(source_epsg, x, y, x, y)
 
     return geom_map[type(geometry)](geometry, source_epsg, target_epsg)
+
+def _project_multi_geom(
+    geom: BaseGeometry,
+    source_epsg: int,
+    target_epsg: int
+    ) -> BaseGeometry:
+    return type(geom)([_reproject(g, source_epsg, target_epsg) for g in geom.geoms])
 
 def _project_point(
     point: Point, source_epsg: int, target_epsg: int
