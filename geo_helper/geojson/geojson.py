@@ -3,8 +3,6 @@ from enum import Enum
 
 import jsonschema
 from jsonschema import ValidationError
-from shapely.geometry import MultiPolygon, Polygon, shape
-from shapely.geometry.base import BaseGeometry
 
 
 class NotSupportedGeometryType(Exception):
@@ -57,40 +55,7 @@ def validate_geojson(geojson:dict, schema: dict) -> None:
     if not geojson["features"]:
         raise ValidationError("No features in geojson")
 
-def get_geojson_geometry(geojson_path: str) -> dict:
-    """Returns the geometry of the first feature in a geojson file.
-
-    :param geojson_path: Path to geojson file
-
-    :return: Geojson geometry
-
-    :raises FileNotFoundError: If geojson file is not found
-    :raises JSONDecodeError: If geojson file is not valid json.
-    :raises jsonschema.exceptions.ValidationError: If geojson is not valid.
-    :raises jsonschema.exceptions.SchemaError: If schema is not valid.
-    """
+def list_geojson_geometries(geojson_path: str) -> list[dict]:
+    """ returns list of geometries from geojson file """
     val_geojson = get_geojson(geojson_path)
-    return val_geojson["features"][0]["geometry"]
-
-
-def get_shape_from_geojson(geojson_path: str) -> BaseGeometry:
-    """returns shapely shape from geojson file"""
-    return shape(get_geojson_geometry(geojson_path))
-
-def get_bbox_from_geojson(geojson_path: str):
-    """returns bbox from geojson file"""
-    return get_shape_from_geojson(geojson_path).bounds
-
-def get_simple_polygon_from_geojson(geojson_path: str) -> dict:
-    """returns polygon geojson from geojson file"""
-    bbox = get_bbox_from_geojson(geojson_path)
-    return {
-        "type": "Polygon",
-        "coordinates": [[
-            [bbox[0], bbox[1]],
-            [bbox[2], bbox[1]],
-            [bbox[2], bbox[3]],
-            [bbox[0], bbox[3]],
-            [bbox[0], bbox[1]]
-        ]]
-    }
+    return [feature["geometry"] for feature in val_geojson["features"]]
