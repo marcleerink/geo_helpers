@@ -1,6 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 from functools import cache
-from typing import Optional
+from typing import Optional, Union
 
 import pyproj
 from pyproj.aoi import AreaOfInterest
@@ -130,8 +130,8 @@ def _reproject(
     ) -> BaseGeometry:
     geom_map = {
         Point: _project_point,
-        LineString: _project_linestring,
-        LinearRing: _project_linear_ring,
+        LineString: _project_line,
+        LinearRing: _project_line,
         Polygon: _project_polygon,
         MultiPoint: _project_multi_geom,
         MultiLineString: _project_multi_geom,
@@ -166,17 +166,11 @@ def _project_point(
     transformer = create_transformer(source_epsg, target_epsg, point)
     return Point(transformer.transform(point.x, point.y))
 
-def _project_linestring(
+def _project_line(
     linestring: LineString, source_epsg: int, target_epsg: int
-    ) -> LineString:
+    ) -> Union[LineString, LinearRing]:
     transformer = create_transformer(source_epsg, target_epsg, linestring.centroid)
-    return LineString([transformer.transform(*xy) for xy in linestring.coords])
-
-def _project_linear_ring(
-    linear_ring: LinearRing, source_epsg: int, target_epsg: int
-    ) -> LinearRing:
-    transformer = create_transformer(source_epsg, target_epsg, linear_ring.centroid)
-    return LinearRing([transformer.transform(*xy) for xy in linear_ring.coords])
+    return type(linestring)([transformer.transform(*xy) for xy in linestring.coords])
 
 def _project_polygon(
     polygon: Polygon, source_epsg: int, target_epsg: int
