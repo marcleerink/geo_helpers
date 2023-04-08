@@ -3,9 +3,8 @@ import json
 import pytest
 from jsonschema import ValidationError
 
-from ..geo_helper.geojson.geojson import (GeometryType,
-                                          NotSupportedGeometryType,
-                                          get_geojson, validate_geojson)
+from ..geo_helper.geojson import (GeometryType, NotSupportedGeometryType,
+                                  get_geojson, validate_geojson)
 
 VALID_GEOJSON_PATH = 'tests/assets/1sqkm_germany.geojson'
 

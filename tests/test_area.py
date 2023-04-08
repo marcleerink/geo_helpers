@@ -2,8 +2,8 @@ from shapely.geometry import (GeometryCollection, LinearRing, LineString,
                               MultiLineString, MultiPoint, MultiPolygon, Point,
                               Polygon)
 
-from ..geo_helper.projecting.area import (calculate_area_geometry,
-                                          calculate_area_geometry_local_utm)
+from ..geo_helper.area import (calculate_area_geometry,
+                               calculate_area_geometry_local_utm)
 
 POINT = Point(8.0, 50.0)
 LINESTRING = LineString([(8.0, 50.0), (8.1, 50.1)])

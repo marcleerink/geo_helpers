@@ -6,10 +6,12 @@ from shapely.geometry import (GeometryCollection, LinearRing, LineString,
                               MultiLineString, MultiPoint, MultiPolygon, Point,
                               Polygon, shape)
 
-from ..geo_helper.projecting.reproject import (create_transformer,
-                                               determine_utm_epsg,
-                                               reproject_geometry,
-                                               reproject_geometry_local_utm)
+from ..geo_helper.reproject import (create_transformer, determine_utm_epsg,
+                                    reproject_geometry,
+                                    reproject_geometry_local_utm)
+
+PATCH_DETERMINE_UTM_EPSG = 'geo_helper.geo_helper.reproject.determine_utm_epsg'
+PATCH__REPROJECT = 'geo_helper.geo_helper.reproject._reproject'
 
 POINT = Point(8.0, 50.0)
 LINESTRING = LineString([(8.0, 50.0), (8.1, 50.1)])
@@ -167,7 +169,7 @@ def test_project_geom_local_utm_geometrycollection():
     assert projected.geoms[5].geoms[0].coords[1][1] == 5550137.09562659
 
 def test_project_determine_utm_epsg_called_for_each_geom():
-    with patch('geo_helper.geo_helper.projecting.reproject.determine_utm_epsg',
+    with patch(PATCH_DETERMINE_UTM_EPSG,
                wraps=determine_utm_epsg) as mock:
         reproject_geometry_local_utm(GEOMETRYCOLLECTION)
     assert mock.call_count == 6
@@ -176,7 +178,7 @@ def test_project_determine_utm_epsg_called_for_each_geom():
     assert mock.call_args_list[0] != mock.call_args_list[1]
 
 def test_project_geometry_determine_utm_epsg_not_called():
-    with patch('geo_helper.geo_helper.projecting.reproject.determine_utm_epsg',
+    with patch(PATCH_DETERMINE_UTM_EPSG,
                wraps=determine_utm_epsg) as mock:
         reproject_geometry(GEOMETRYCOLLECTION)
     assert mock.call_count == 0
@@ -218,7 +220,7 @@ def test_project_geometry_local_utm_correct_multipolygon_area():
     assert projected.area / 1e6 == pytest.approx(5, abs=0.01)
 
 def test_project_multi_geometry_multithreading_catch_exception():
-    with patch('geo_helper.geo_helper.projecting.reproject._reproject',
+    with patch(PATCH__REPROJECT,
                side_effect=Exception):
         with pytest.raises(Exception):
             reproject_geometry(GEOMETRYCOLLECTION)
