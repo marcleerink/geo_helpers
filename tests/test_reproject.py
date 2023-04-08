@@ -172,6 +172,15 @@ def test_project_determine_utm_epsg_called_for_each_geom():
         reproject_geometry_local_utm(GEOMETRYCOLLECTION)
     assert mock.call_count == 6
 
+    #assert that not all calls are with the same arguments
+    assert mock.call_args_list[0] != mock.call_args_list[1]
+
+def test_project_geometry_determine_utm_epsg_not_called():
+    with patch('geo_helper.geo_helper.projecting.reproject.determine_utm_epsg',
+               wraps=determine_utm_epsg) as mock:
+        reproject_geometry(GEOMETRYCOLLECTION)
+    assert mock.call_count == 0
+
 @pytest.mark.parametrize(
     'polygon',
     [POLYGON_GERMANY, POLYGON_EQUADOR, POLYGON_GREENLAND,
@@ -207,3 +216,9 @@ def test_project_geometry_local_utm_correct_multipolygon_area():
     projected = reproject_geometry_local_utm(multipolygon)
     assert projected.geom_type == 'MultiPolygon'
     assert projected.area / 1e6 == pytest.approx(5, abs=0.01)
+
+def test_project_multi_geometry_multithreading_catch_exception():
+    with patch('geo_helper.geo_helper.projecting.reproject._reproject',
+               side_effect=Exception):
+        with pytest.raises(Exception):
+            reproject_geometry(GEOMETRYCOLLECTION)

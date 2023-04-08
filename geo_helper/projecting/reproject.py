@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+from functools import cache
 from typing import Optional
 
 import pyproj
@@ -9,6 +11,7 @@ from shapely.geometry import (GeometryCollection, LinearRing, LineString,
 from shapely.ops import BaseGeometry
 
 
+@cache
 def determine_utm_epsg(
     source_epsg:int,
     west_lon:float,
@@ -49,6 +52,7 @@ def is_utm_epsg(epsg: int) -> bool:
     """ Check if an EPSG code is a UTM code."""
     return pyproj.CRS.from_epsg(epsg).to_dict()['proj'] == 'utm'
 
+@cache
 def create_transformer(
     source_epsg: int,
     target_epsg: int,
@@ -149,7 +153,12 @@ def _project_multi_geom(
     source_epsg: int,
     target_epsg: int
     ) -> BaseGeometry:
-    return type(geom)([_reproject(g, source_epsg, target_epsg) for g in geom.geoms])
+    with ThreadPoolExecutor() as executor:
+        projected_geoms = executor.map(
+            lambda g: _reproject(g, source_epsg, target_epsg),
+            geom.geoms)
+
+    return type(geom)(list(projected_geoms))
 
 def _project_point(
     point: Point, source_epsg: int, target_epsg: int
