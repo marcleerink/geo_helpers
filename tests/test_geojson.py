@@ -43,8 +43,18 @@ def test_get_geojson_all_geometry_types():
 def test_validate_geojson(geojson, schema):
     validate_geojson(geojson, schema)
 
-def test_validate_geojson_invalid_geojson_no_features(schema):
+def test_validate_geojson_no_features(schema):
     geojson = {"type": "FeatureCollection"}
+    with pytest.raises(ValidationError):
+        validate_geojson(geojson, schema)
+
+def test_validate_geojson_empty_features(schema):
+    geojson = {"type": "FeatureCollection", "features": []}
+    with pytest.raises(ValidationError):
+        validate_geojson(geojson, schema)
+
+def test_validate_geojson_no_geometry(schema):
+    geojson = {"type": "FeatureCollection", "features": [{"type": "Feature"}]}
     with pytest.raises(ValidationError):
         validate_geojson(geojson, schema)
 
