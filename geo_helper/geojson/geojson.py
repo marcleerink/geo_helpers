@@ -1,5 +1,6 @@
 import json
-from enum import Enum
+from enum import Enum, auto
+from typing import Optional
 
 import jsonschema
 from jsonschema import ValidationError
@@ -9,14 +10,18 @@ class NotSupportedGeometryType(Exception):
     """Exception for not supported geometry type"""
 
 class GeometryType(Enum):
-    POINT = 'Point'
-    LINESTRING = 'LineString'
-    LINEARRING = 'LinearRing'
-    POLYGON = 'Polygon'
-    MULTIPOINT = 'MultiPoint'
-    MULTILINESTRING = 'MultiLineString'
-    MULTIPOLYGON = 'MultiPolygon'
-    GEOMETRYCOLLECTION = 'GeometryCollection'
+    POINT = auto()
+    LINESTRING = auto()
+    LINEARRING = auto()
+    POLYGON = auto()
+    MULTIPOINT = auto()
+    MULTILINESTRING = auto()
+    MULTIPOLYGON = auto()
+    GEOMETRYCOLLECTION = auto()
+
+    @classmethod
+    def has_name(cls, name_lower: str) -> bool:
+        return name_lower in [g.name.lower() for g in cls]
 
 def _read_geojson(geojson_path: str) -> str:
     try:
@@ -30,12 +35,18 @@ def _load_geojson(geojson_str: str) -> dict:
 
 SCHEMA = _load_geojson(_read_geojson("assets/geojson_schema.json"))
 
-def get_geojson(geojson_path: str, schema: dict = SCHEMA) -> dict:
+def get_geojson(
+    geojson_path: str,
+    schema: dict = SCHEMA,
+    not_allowed_geometry_types: Optional[list[str]] = None,
+    ) -> dict:
     """Reads geojson file and returns a geojson dictionary.
 
     :param geojson_path: Path to geojson file
     :param schema: Geojson schema.
         Default is schema from 'https://geojson.org/schema/FeatureCollection.json'
+    :param not_allowed_geometry_types: List of not allowed geometry types.
+        Defaults to None, which means all geometry types are allowed.
 
     :return: Geojson dictionary
 
@@ -46,14 +57,27 @@ def get_geojson(geojson_path: str, schema: dict = SCHEMA) -> dict:
 
     """
     geojson = _load_geojson(_read_geojson(geojson_path))
-    validate_geojson(geojson, schema)
+    validate_geojson(geojson, schema, not_allowed_geometry_types)
 
     return geojson
 
-def validate_geojson(geojson:dict, schema: dict) -> None:
+def validate_geojson(
+    geojson:dict,
+    schema: dict,
+    not_allowed_geometry_types: Optional[list[str]] = None,
+    ) -> None:
     jsonschema.validate(geojson, schema)
+
     if not geojson["features"]:
         raise ValidationError("No features in geojson")
+
+    if not_allowed_geometry_types:
+        upper_na_geom_types = [g.upper() for g in not_allowed_geometry_types]
+        for feature in geojson["features"]:
+            geom_type = str(feature["geometry"]["type"]).upper()
+            if geom_type in upper_na_geom_types:
+                raise NotSupportedGeometryType(
+                    f"Geometry type {feature['geometry']['type']} not supported")
 
 def list_geojson_geometries(geojson_path: str) -> list[dict]:
     """ returns list of geometries from geojson file """
