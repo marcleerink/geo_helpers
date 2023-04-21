@@ -3,8 +3,8 @@ import json
 import pytest
 from jsonschema import ValidationError
 
-from ..geo_helper.geojson import (GeometryType, NotSupportedGeometryType,
-                                  get_geojson, validate_geojson)
+from ..geo_helper.geojson import (NotSupportedGeometryType, get_geojson,
+                                  validate_geojson)
 
 VALID_GEOJSON_PATH = 'tests/assets/1sqkm_germany.geojson'
 
@@ -43,9 +43,14 @@ def test_get_geojson_all_geometry_types():
 def test_validate_geojson(geojson, schema):
     validate_geojson(geojson, schema)
 
-def test_validate_geojson_not_allowed_geometry_types(schema):
+def test_validate_geojson_not_allowed_geometry_type_not_in_all_geometry_types(schema):
     geojson = ALL_GEOMETRY_TYPES_GEOJSON
     with pytest.raises(NotSupportedGeometryType):
+        validate_geojson(geojson, schema, ['NotSupportedGeometryType'])
+
+def test_validate_geojson_not_allowed_geometry_types(schema):
+    geojson = ALL_GEOMETRY_TYPES_GEOJSON
+    with pytest.raises(ValueError):
         validate_geojson(geojson, schema, ['Point'])
 
 def test_validate_geojson_no_features(schema):

@@ -20,9 +20,13 @@ class GeometryType(Enum):
     GEOMETRYCOLLECTION = auto()
 
     @classmethod
-    def has_name(cls, name_lower: str) -> bool:
-        return name_lower in [g.name.lower() for g in cls]
+    def has_name(cls, name: str) -> bool:
+        return name.upper() in [g.name.upper() for g in cls]
 
+    @classmethod
+    def check_name(cls, name: str) -> None:
+        if not cls.has_name(name):
+            raise ValueError(f"Not supported geometry type: {name}")
 def _read_geojson(geojson_path: str) -> str:
     try:
         with open(geojson_path, encoding="utf-8") as file:
@@ -72,12 +76,17 @@ def validate_geojson(
         raise ValidationError("No features in geojson")
 
     if not_allowed_geometry_types:
+        if not all([GeometryType.has_name(g) for g in not_allowed_geometry_types]):
+            raise NotSupportedGeometryType(
+                "Not supported geometry type in not_allowed_geometry_types")
+
         upper_na_geom_types = [g.upper() for g in not_allowed_geometry_types]
+
         for feature in geojson["features"]:
             geom_type = str(feature["geometry"]["type"]).upper()
             if geom_type in upper_na_geom_types:
-                raise NotSupportedGeometryType(
-                    f"Geometry type {feature['geometry']['type']} not supported")
+                raise ValueError(
+                    f"Geometry type {feature['geometry']['type']} not allowed")
 
 def list_geojson_geometries(geojson_path: str) -> list[dict]:
     """ returns list of geometries from geojson file """
