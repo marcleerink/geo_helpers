@@ -4,7 +4,7 @@ import pytest
 from jsonschema import ValidationError
 
 from ..geo_helper.geojson import (NotSupportedGeometryType, get_geojson,
-                                  validate_geojson)
+                                  validate_geojson, write_geojson)
 
 VALID_GEOJSON_PATH = 'tests/assets/1sqkm_germany.geojson'
 
@@ -173,3 +173,11 @@ def test_validate_geojson_wrong_feature_boundingbox_type(schema):
         {"type": "Feature", "geometry": {"type": "Point", "coordinates": [1, 2]}, "bbox": [1, 2, 3, "4"]}]}
     with pytest.raises(ValidationError):
         validate_geojson(geojson, schema)
+
+def test_write_geojson(tmpdir):
+    geojson = {"type": "FeatureCollection", "features": [
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [1, 2]}, "properties": {"foo": "bar"}}]}
+    path = tmpdir.join("test.geojson")
+    write_geojson(geojson, path)
+    with open(path) as f:
+        assert f.read() == json.dumps(geojson, indent=4)

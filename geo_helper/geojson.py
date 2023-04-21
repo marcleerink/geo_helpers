@@ -92,3 +92,14 @@ def list_geojson_geometries(geojson_path: str) -> list[dict]:
     """ returns list of geometries from geojson file """
     val_geojson = get_geojson(geojson_path)
     return [feature["geometry"] for feature in val_geojson["features"]]
+
+def write_geojson(geojson: dict, path: str) -> None:
+    """Writes geojson dictionary to file. Validates geojson before writing.
+
+    :param geojson: Geojson dictionary
+    :param path: Path to file
+
+    """
+    validate_geojson(geojson, SCHEMA)
+    with open(path, "w", encoding="utf-8") as file:
+        json.dump(geojson, file, indent=4)
