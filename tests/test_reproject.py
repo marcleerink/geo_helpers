@@ -1,14 +1,19 @@
 import json
+import math
+import os
 from unittest.mock import patch
 
 import pytest
+import rasterio
+from rasterio.warp import calculate_default_transform
 from shapely.geometry import (GeometryCollection, LinearRing, LineString,
                               MultiLineString, MultiPoint, MultiPolygon, Point,
                               Polygon, shape)
 
 from ..geo_helper.reproject import (create_transformer, determine_utm_epsg,
                                     reproject_geometry,
-                                    reproject_geometry_local_utm)
+                                    reproject_geometry_local_utm,
+                                    reproject_raster)
 
 PATCH_DETERMINE_UTM_EPSG = 'geo_helper.geo_helper.reproject.determine_utm_epsg'
 PATCH__REPROJECT = 'geo_helper.geo_helper.reproject._reproject'
@@ -224,3 +229,28 @@ def test_project_multi_geometry_multithreading_catch_exception():
                side_effect=Exception):
         with pytest.raises(Exception):
             reproject_geometry(GEOMETRYCOLLECTION)
+
+def test_reproject_raster():
+    raster_path = 'tests/assets/global_monthly_2020_01_mosaic_merge_clip.tif'
+    out_path = 'tests/assets/global_monthly_2020_01_mosaic_merge_clip_4326.tif'
+
+    # get width and height of raster
+    with rasterio.open(raster_path) as src:
+        width = src.width
+        height = src.height
+
+    reproject_raster(raster=raster_path,target_epsg=4326, output_path=out_path)
+
+    # test correct file was created
+    assert os.path.exists(out_path)
+    assert os.path.isfile(out_path)
+    assert os.path.getsize(out_path) > 0
+    assert os.path.splitext(out_path)[1] == os.path.splitext(raster_path)[1]
+
+    with rasterio.open(out_path) as src:
+        # test reprojection was successful on all bands
+        assert src.crs.to_epsg() == 4326
+        assert src.count == 4
+        # test width and height are almost the same
+        assert math.isclose(src.width, width, rel_tol=0.1)
+        assert math.isclose(src.height, height, rel_tol=0.1)
