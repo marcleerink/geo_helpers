@@ -13,9 +13,9 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    packages=find_packages(exclude=['tests']),
+    packages=find_packages(exclude=["tests"]),
     include_package_data=True,
     zip_safe=False,
-    install_requires=["shapely, jsonschema"],
-    extras_require={"dev": ["pytest"]},
+    install_requires=["shapely, jsonschema", "rasterio", "pyproj"],
+    extras_require={"dev": ["pytest", "black", "ruff"]},
 )

@@ -9,6 +9,7 @@ from jsonschema import ValidationError
 class NotSupportedGeometryType(Exception):
     """Exception for not supported geometry type"""
 
+
 class GeometryType(Enum):
     POINT = auto()
     LINESTRING = auto()
@@ -27,6 +28,8 @@ class GeometryType(Enum):
     def check_name(cls, name: str) -> None:
         if not cls.has_name(name):
             raise ValueError(f"Not supported geometry type: {name}")
+
+
 def _read_geojson(geojson_path: str) -> str:
     try:
         with open(geojson_path, encoding="utf-8") as file:
@@ -34,16 +37,19 @@ def _read_geojson(geojson_path: str) -> str:
     except FileNotFoundError as err:
         raise FileNotFoundError(f"Geojson file not found: {geojson_path}") from err
 
+
 def _load_geojson(geojson_str: str) -> dict:
     return json.loads(geojson_str)
 
+
 SCHEMA = _load_geojson(_read_geojson("assets/geojson_schema.json"))
+
 
 def get_geojson(
     geojson_path: str,
     schema: dict = SCHEMA,
     not_allowed_geometry_types: Optional[list[str]] = None,
-    ) -> dict:
+) -> dict:
     """Reads geojson file and returns a geojson dictionary.
 
     :param geojson_path: Path to geojson file
@@ -65,11 +71,12 @@ def get_geojson(
 
     return geojson
 
+
 def validate_geojson(
-    geojson:dict,
+    geojson: dict,
     schema: dict,
     not_allowed_geometry_types: Optional[list[str]] = None,
-    ) -> None:
+) -> None:
     jsonschema.validate(geojson, schema)
 
     if not geojson["features"]:
@@ -78,7 +85,8 @@ def validate_geojson(
     if not_allowed_geometry_types:
         if not all([GeometryType.has_name(g) for g in not_allowed_geometry_types]):
             raise NotSupportedGeometryType(
-                "Not supported geometry type in not_allowed_geometry_types")
+                "Not supported geometry type in not_allowed_geometry_types"
+            )
 
         upper_na_geom_types = [g.upper() for g in not_allowed_geometry_types]
 
@@ -86,12 +94,15 @@ def validate_geojson(
             geom_type = str(feature["geometry"]["type"]).upper()
             if geom_type in upper_na_geom_types:
                 raise ValueError(
-                    f"Geometry type {feature['geometry']['type']} not allowed")
+                    f"Geometry type {feature['geometry']['type']} not allowed"
+                )
+
 
 def list_geojson_geometries(geojson_path: str) -> list[dict]:
-    """ returns list of geometries from geojson file """
+    """returns list of geometries from geojson file"""
     val_geojson = get_geojson(geojson_path)
     return [feature["geometry"] for feature in val_geojson["features"]]
+
 
 def write_geojson(geojson: dict, path: str) -> None:
     """Writes geojson dictionary to file. Validates geojson before writing.

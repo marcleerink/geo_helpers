@@ -8,7 +8,7 @@ def calculate_area(
     source_epsg: int = 4326,
     target_epsg: int = 9822,
     use_local_utm: bool = False,
-    ) -> float:
+) -> float:
     """
     Calculate area of a geometry in square kilometers.
 

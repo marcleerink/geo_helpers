@@ -1,0 +1,4 @@
+shapely
+jsonschema
+rasterio
+pyproj
