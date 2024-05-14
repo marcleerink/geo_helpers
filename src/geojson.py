@@ -1,10 +1,11 @@
 import json
 from enum import Enum, auto
 from typing import Optional
-
+import pathlib
 import jsonschema
 from jsonschema import ValidationError
-
+from shapely.geometry import shape
+from shapely.geometry.base import BaseGeometry
 
 class NotSupportedGeometryType(Exception):
     """Exception for not supported geometry type"""
@@ -42,7 +43,7 @@ def _load_geojson(geojson_str: str) -> dict:
     return json.loads(geojson_str)
 
 
-SCHEMA = _load_geojson(_read_geojson("assets/geojson_schema.json"))
+SCHEMA = _load_geojson(_read_geojson(pathlib.Path(__file__).parent / "assets/geojson_schema.json"))
 
 
 def get_geojson(
@@ -114,3 +115,7 @@ def write_geojson(geojson: dict, path: str) -> None:
     validate_geojson(geojson, SCHEMA)
     with open(path, "w", encoding="utf-8") as file:
         json.dump(geojson, file, indent=4)
+
+def geojson_to_shapely(geojson: dict) -> list[BaseGeometry]:
+    """Converts geojson to shapely geometries"""
+    return [shape(feature["geometry"]) for feature in geojson["features"]]

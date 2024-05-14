@@ -3,7 +3,7 @@ import json
 import pytest
 from jsonschema import ValidationError
 
-from ..geo_helper.geojson import (
+from ..src.geojson import (
     NotSupportedGeometryType,
     get_geojson,
     validate_geojson,

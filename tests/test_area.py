@@ -9,7 +9,7 @@ from shapely.geometry import (
     Polygon,
 )
 
-from ..geo_helper.area import calculate_area
+from ..src.area import calculate_area
 
 POINT = Point(8.0, 50.0)
 LINESTRING = LineString([(8.0, 50.0), (8.1, 50.1)])
